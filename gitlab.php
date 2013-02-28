@@ -2,9 +2,6 @@
 
 require 'vendor/autoload.php';
 
-//use Goutte\Client;
-use TijsVerkoyen\CssToInlineStyles\CssToInlineStyles;
-
 $gitlabToken = '';
 $from = '';
 $to = '';
@@ -23,6 +20,10 @@ if ($secret !== @$_GET['secret']) {
 // read hook request
 $request = file_get_contents('php://input');
 $json = json_decode($request);
+
+if (empty($json->total_commits_count)) {
+    exit;
+}
 
 $branch = substr($json->ref, strrpos($json->ref, "/") + 1);
 
@@ -47,26 +48,23 @@ foreach ($json->commits as $commit) {
     $html .= 'Author: ' . $commit->author->name . ' &lt;<a href="mailto:' . $commit->author->email . '">' . $commit->author->email .'</a>&gt;' . "\r\n";
     $html .= 'Date: ' . date("m/d/Y h:i:s A T", strtotime($commit->timestamp)) . "\r\n";
     $html .= "\r\n";
-    $html .= '&nbsp;&nbsp;&nbsp;&nbsp;' . $commit->message . "\r\n";
+    $html .= '&nbsp;&nbsp;' . wordwrap($commit->message, 70, "<br>", true) . "\r\n";
+    $html .= "\r\n" . '-----------------------------------------------------------------------' . "\r\n";
     $html .= "\r\n";
 }
 
-$html .= '-----------------------------------------------------------------------' . "\r\n";
 
+$html .= '<br><pre>' . var_dump($json) .'</pre>' . "\r\n";
 $html .= '</pre>' . "\r\n";
 $html .= '</body></html>'. "\r\n";
-
-$css = file_get_contents('style.css');
-
-// convert CSS to inline styles for GMail
-$inline = new CssToInlineStyles($html, $css);
-$message = $inline->convert();
 
 // send email
 $headers  = 'MIME-Version: 1.0' . "\r\n";
 $headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
 $headers .= 'From: ' . $from . "\r\n";
 $headers .= 'Reply-To: ' . $from . "\r\n";
-mail($to, $subject, $message, $headers);
+
+mail($to, $subject, $html, $headers);
 
 ?>
+
