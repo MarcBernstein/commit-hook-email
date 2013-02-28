@@ -2,7 +2,7 @@
 
 require 'vendor/autoload.php';
 
-use Goutte\Client;
+//use Goutte\Client;
 use TijsVerkoyen\CssToInlineStyles\CssToInlineStyles;
 
 $gitlabToken = '';
@@ -24,44 +24,49 @@ if ($secret !== @$_GET['secret']) {
 $request = file_get_contents('php://input');
 $json = json_decode($request);
 
-$branch = $json->repository->name . ':' . $json->ref;
-$many = count($json->commits) > 1;
+$branch = substr($json->ref, strrpos($json->ref, "/") + 1);
 
-$i = 0;
+// prepare subject
+$subject = '[Git] ' . $json->repository->name . ' branch ' . $branch . ' updated';
+
+$html = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /></head><body>' . "\r\n";
+
+$html .= '<pre>' . "\r\n";
+$html .= 'This is an automated email from GitLab. It was generated because a ref' . "\r\n";
+$html .= 'change was pushed to the repository containing the project [' . $json->repository->name . '].' . "\r\n";
+$html .= "\r\n";
+$html .= 'The branch [' . $branch . '] has been updated with ' . $json->total_commits_count .' commit(s).' . "\r\n";
+$html .= "\r\n";
+
+$html .= '- Log -----------------------------------------------------------------' . "\r\n";
+
 foreach ($json->commits as $commit) {
-
-    // prepare subject
-    $subject = $commit->message . ' [' . $branch . ']';
-    if ($many) {
-        $subject .= '[' . $i++ . ']';
-    }
-
-    // prepare commit variables
-    $id = $commit->id;
     $url = str_replace('commits', 'commit', $commit->url);
 
-    // crawl commit diff from GitLab
-    $client = new Client();
-    $crawler = $client->request('GET', $url . '?private_token=' . $gitlabToken);
-
-    // remove GitLab layout
-    $html = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /></head><body>';
-    $html .= '<p>Commit: <a href="' . $url . '" class="commit">' . $id . '</a></p>';
-    foreach ($crawler->filter('.diff_file') as $node) {
-        $html .= $node->ownerDocument->saveHTML($node);
-    }
-    $html .= '</body></html>';
-
-    $css = file_get_contents('style.css');
-
-    // convert CSS to inline styles for GMail
-    $inline = new CssToInlineStyles($html, $css);
-    $message = $inline->convert();
-
-    // send email
-    $headers  = 'MIME-Version: 1.0' . "\r\n";
-    $headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
-    $headers .= 'From: ' . $commit->author->name . ' <' . $from . '>' . "\r\n";
-    $headers .= 'Reply-To: ' . $commit->author->email . "\r\n";
-    mail($to, $subject, $message, $headers);
+    $html .= 'Commit: <a href="' . $url . '">' . $commit->id . '</a>' . "\r\n";
+    $html .= 'Author: ' . $commit->author->name . ' &lt;<a href="mailto:' . $commit->author->email . '">' . $commit->author->email .'</a>&gt;' . "\r\n";
+    $html .= 'Date: ' . date("m/d/Y h:i:s A T", strtotime($commit->timestamp)) . "\r\n";
+    $html .= "\r\n";
+    $html .= '&nbsp;&nbsp;&nbsp;&nbsp;' . $commit->message . "\r\n";
+    $html .= "\r\n";
 }
+
+$html .= '-----------------------------------------------------------------------' . "\r\n";
+
+$html .= '</pre>' . "\r\n";
+$html .= '</body></html>'. "\r\n";
+
+$css = file_get_contents('style.css');
+
+// convert CSS to inline styles for GMail
+$inline = new CssToInlineStyles($html, $css);
+$message = $inline->convert();
+
+// send email
+$headers  = 'MIME-Version: 1.0' . "\r\n";
+$headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
+$headers .= 'From: ' . $from . "\r\n";
+$headers .= 'Reply-To: ' . $from . "\r\n";
+mail($to, $subject, $message, $headers);
+
+?>
