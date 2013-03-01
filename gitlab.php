@@ -48,7 +48,7 @@ foreach ($json->commits as $commit) {
     $html .= 'Author: ' . $commit->author->name . ' &lt;<a href="mailto:' . $commit->author->email . '">' . $commit->author->email .'</a>&gt;' . "\r\n";
     $html .= 'Date: ' . date("m/d/Y h:i:s A T", strtotime($commit->timestamp)) . "\r\n";
     $html .= "\r\n";
-    $html .= '&nbsp;&nbsp;' . wordwrap($commit->message, 70, "<br>", true) . "\r\n";
+    $html .= wordwrap($commit->message, 70, "<br>", true) . "\r\n";
     $html .= "\r\n" . '-----------------------------------------------------------------------' . "\r\n";
     $html .= "\r\n";
 }
